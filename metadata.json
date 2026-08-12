@@ -1,0 +1,28 @@
+{
+  "team_id": "<YOUR_DEVPOST_TEAM_ID>",
+  "project_name": "NURA Edge",
+  "domain": "Healthcare & Medical",
+  "one_line": "An offline maternal-health assistant for community health workers: patient onboarding with clinical risk scoring, personalized daily tips and wellness check-ins, and RAG-grounded symptom triage — all on a local laptop with no cloud and no internet.",
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "base_model_license": "Apache-2.0",
+  "quantization": "Q4_K_M",
+  "runtime": "llama.cpp",
+  "model_file": "models/nura-q4_k_m.gguf",
+  "model_size_on_disk": "945 MB",
+  "cross_disciplinary_integration": "Health + information retrieval: offline RAG (local sentence-embedding model + FAISS vector search) over a clinician-approved maternal-health corpus grounds the LLM's triage answers. A deterministic clinical risk rubric and a local SQLite datastore complete the patient journey.",
+  "components": [
+    "Onboarding + risk scoring (deterministic clinical rubric, no LLM)",
+    "Personalized daily health tips (local LLM)",
+    "Personalized wellness check-ins (local LLM)",
+    "Symptom triage grounded in a clinician-approved corpus (local LLM + offline RAG)",
+    "Local SQLite database for patient records and conversation history"
+  ],
+  "offline": true,
+  "network_calls_at_runtime": "none",
+  "bonus_claims": {
+    "african_use_case": true,
+    "african_language": false,
+    "budget_laptop": false
+  },
+  "notes": "NURA Edge is the offline core of the NURA maternal-health platform (a production FastAPI system). It replaces the platform's hosted LLM with a local quantized model, eliminating per-token API fees and connectivity requirements so a clinic can run it on hardware it already owns."
+}

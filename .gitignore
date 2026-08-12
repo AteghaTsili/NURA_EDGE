@@ -1,0 +1,12 @@
+models/*.gguf
+models/base/
+llama.cpp/
+adtc-profiler/
+rag/index/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.vscode/
+*.swp
+*.swo
