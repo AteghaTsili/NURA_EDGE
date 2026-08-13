@@ -81,32 +81,58 @@ def _run_local(system_prompt: str, context: str, max_tokens: int, temp: float) -
         f"<|im_start|>user\n{context}<|im_end|>\n"
         f"<|im_start|>assistant\n"
     )
-    out = subprocess.run(
-        [str(LLAMA_CLI), "-m", str(MODEL_PATH),
-         "-p", prompt, "-n", str(max_tokens), "-c", "1024", "-t", "8",
-         "-ngl", "0", "-no-cnv", "-st", "--temp", str(temp),
-         "--no-display-prompt"],
-        capture_output=True, text=True,
-        stdin=subprocess.DEVNULL,      # never wait for interactive input
-    )
-    return _clean(_strip_noise(out.stdout))
+    import tempfile
+    # llama-cli can write generated text straight to the terminal, bypassing
+    # subprocess pipes. Redirect both streams to a temp file at the shell level
+    # so we reliably capture everything, then read it back.
+    with tempfile.NamedTemporaryFile(mode="r+", suffix=".txt", delete=False) as tf:
+        tmp_path = tf.name
+
+    cmd = [str(LLAMA_CLI), "-m", str(MODEL_PATH),
+           "-p", prompt, "-n", str(max_tokens), "-c", "1024", "-t", "8",
+           "-ngl", "0", "-no-cnv", "-st", "--temp", str(temp),
+           "--no-display-prompt"]
+
+    # run with stdout+stderr both redirected to the file
+    with open(tmp_path, "w") as fout:
+        subprocess.run(cmd, stdout=fout, stderr=fout,
+                       stdin=subprocess.DEVNULL, text=True)
+
+    with open(tmp_path, "r", errors="ignore") as fin:
+        raw = fin.read()
+    try:
+        os.remove(tmp_path)
+    except OSError:
+        pass
+
+    return _clean(_strip_noise(raw))
 
 
 def _strip_noise(raw: str) -> str:
-    """Remove llama-cli's banner / log lines that can leak into stdout,
-    keeping only the model's generated text."""
+    """Remove llama-cli's banner / log lines, keeping only generated text."""
     lines = raw.splitlines()
     keep = []
+    NOISE_TOKENS = (
+        "██", "▄▄", "▀", "build ", "build:", "model ", "ftype", "modalities",
+        "available commands", "/exit", "/regen", "/clear", "/read", "/glob",
+        "Loading model", "<|im_start|>", "<|im_end|>", "Exiting", "t/s",
+        "llama_", "llm_load", "print_info", "load:", "main:", "system_info",
+        "sampler", "generate:", "warning", "Warning", "n_ctx", "n_batch",
+        "ggml_", "metal", "Metal", "EOF", "eval time", "total time",
+        "sampling time", "load time", "prompt eval",
+    )
     for ln in lines:
         s = ln.strip()
         if not s:
             continue
-        # skip banner art, build/log lines, command help, and the prompt echo
-        if any(tok in s for tok in ("██", "▄▄", "build ", "model ", "ftype",
-                                    "modalities", "available commands", "/exit",
-                                    "/regen", "/clear", "/read", "/glob",
-                                    "Loading model", "<|im_start|>", "<|im_end|>",
-                                    "Exiting", "t/s")):
+        if any(tok in s for tok in NOISE_TOKENS):
+            continue
+        # skip lines that are just the '>' prompt marker
+        if s == ">" or s.startswith("> "):
+            s = s[1:].strip()
+            if not s:
+                continue
+            keep.append(s)
             continue
         keep.append(ln)
     return "\n".join(keep).strip()
@@ -114,14 +140,15 @@ def _strip_noise(raw: str) -> str:
 
 def _clean(text: str) -> str:
     """Enforce the hard style rules a small model sometimes misses:
-    no exclamation marks, no 'Today's tip:'-style preamble, trim to first
-    clean sentence group. Keeps the model's content, fixes the format."""
+    no exclamation marks, no emojis, no preamble. Keeps content, fixes format."""
     text = text.replace("!", ".")                       # rule: no exclamation marks
+    # remove emojis / non-ASCII decorations (keep normal punctuation & accents)
+    import re
+    text = re.sub(r"[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F900-\U0001F9FF]", "", text)
     # strip common preambles the rules forbid
     for pre in ("Today's tip:", "Tip:", "Check-in:", "Here is", "Here's"):
         if text.lower().startswith(pre.lower()):
             text = text[len(pre):].lstrip(" :-")
-    # collapse any accidental double periods from the replace
     while ".." in text:
         text = text.replace("..", ".")
     return text.strip()

@@ -24,17 +24,28 @@ INDEX_DIR  = ROOT / "rag" / "index"
 MODEL_PATH = ROOT / "models" / "nura-q4_k_m.gguf"
 LLAMA_CLI  = ROOT / "llama.cpp" / "build" / "bin" / "llama-cli"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-TOP_K = 4                                         # keep context tight → less RAM, faster
+TOP_K = 3                                         # keep context tight → less RAM, faster
 
 # NURA's safety contract, enforced in the prompt: ground answers in the
 # retrieved guidance, never invent, never confirm a loss, escalate danger signs.
+# NURA speaks to whoever is asking — the pregnant woman herself, or a community
+# health worker on her behalf — mirroring the production NURA platform.
 SYSTEM = (
-    "You are NURA, an offline clinical-decision-support assistant for a community "
-    "health worker handling maternal health. Use ONLY the guidance provided in "
-    "CONTEXT to answer. If the context does not cover it, say so and advise referral. "
-    "Never invent medical facts. Never confirm a pregnancy loss yourself — only a "
-    "clinician can. If any danger sign is present, clearly recommend urgent referral. "
-    "Answer briefly, calmly, and in plain language the health worker can relay."
+    "You are NURA, a warm, calm, offline maternal-health assistant working in "
+    "sub-Saharan Africa. You answer questions from pregnant and postpartum women "
+    "directly, and also from community health workers asking on a woman's behalf. "
+    "Speak in simple, reassuring language the reader can act on. "
+    "Use ONLY the guidance provided in CONTEXT to answer. If the context does not "
+    "cover the question, say so plainly and advise seeing a clinician. "
+    "Never invent medical facts and never prescribe medicines or doses. "
+    "Never confirm a pregnancy loss yourself — only a clinician can do that. "
+    "EMERGENCY RULE: if a danger sign is present (for example heavy bleeding, "
+    "severe headache, blurred vision, fits, high fever, severe abdominal pain, no "
+    "fetal movement, or a newborn who cannot feed or breathe well), begin your "
+    "reply DIRECTLY with the instruction to get to a health facility now — no "
+    "preamble — then briefly what to do (do not travel alone if possible, what to "
+    "bring). One short reassuring sentence may come at the end, never the start. "
+    "Answer briefly and calmly."
 )
 
 
@@ -62,17 +73,51 @@ def build_prompt(question: str, hits):
     )
 
 
+def _strip_noise(raw: str) -> str:
+    """Keep only generated text, drop llama-cli banner/log lines."""
+    NOISE = ("██", "▄▄", "▀", "build ", "build:", "model ", "ftype", "modalities",
+             "available commands", "/exit", "/regen", "/clear", "/read", "/glob",
+             "Loading model", "<|im_start|>", "<|im_end|>", "Exiting", "t/s",
+             "llama_", "llm_load", "print_info", "load:", "main:", "system_info",
+             "sampler", "generate:", "warning", "Warning", "n_ctx", "n_batch",
+             "ggml_", "metal", "Metal", "eval time", "total time", "load time",
+             "prompt eval", "NotOpenSSL", "urllib3")
+    keep = []
+    for ln in raw.splitlines():
+        s = ln.strip()
+        if not s:
+            continue
+        if any(t in s for t in NOISE):
+            continue
+        if s == ">" or s.startswith("> "):
+            s = s[1:].strip()
+            if not s:
+                continue
+        keep.append(s)
+    return "\n".join(keep).strip()
+
+
 def generate(prompt: str):
-    # Calls the local quantized model. -n caps output tokens; -c caps context;
-    # -t sets CPU threads. All local — no API, no network.
-    out = subprocess.run(
-    [str(LLAMA_CLI), "-m", str(MODEL_PATH),
-     "-p", prompt, "-n", "220", "-c", "2048", "-t", "4",
-     "-ngl", "0", "-no-cnv",
-     "--temp", "0.3", "--no-display-prompt"],
-    capture_output=True, text=True,
-)
-    return out.stdout.strip()
+    # Calls the local quantized model. -ngl 0 forces CPU (matches ADTC target);
+    # -no-cnv/-st run one prompt and exit. Output is redirected to a file because
+    # llama-cli can write straight to the terminal, bypassing subprocess pipes.
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tf:
+        tmp_path = tf.name
+    cmd = [str(LLAMA_CLI), "-m", str(MODEL_PATH),
+           "-p", prompt, "-n", "120", "-c", "2048", "-t", "8",
+           "-ngl", "0", "-no-cnv", "-st",
+           "--temp", "0.3", "--no-display-prompt"]
+    with open(tmp_path, "w") as fout:
+        subprocess.run(cmd, stdout=fout, stderr=fout,
+                       stdin=subprocess.DEVNULL, text=True)
+    with open(tmp_path, "r", errors="ignore") as fin:
+        raw = fin.read()
+    try:
+        os.remove(tmp_path)
+    except OSError:
+        pass
+    return _strip_noise(raw)
 
 
 def answer(question: str):
