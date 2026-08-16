@@ -32,7 +32,7 @@ from services_prompts import (
 )
 
 ROOT       = pathlib.Path(__file__).parent.parent
-MODEL_PATH = ROOT / "models" / "nura-q4_k_m.gguf"
+MODEL_PATH = ROOT / "models" / "nura-q3_k_m.gguf"
 LLAMA_CLI  = ROOT / "llama.cpp" / "build" / "bin" / "llama-cli"
 SMS_LIMIT  = 155
 

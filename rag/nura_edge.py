@@ -21,7 +21,7 @@ os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
 ROOT       = pathlib.Path(__file__).parent.parent
 INDEX_DIR  = ROOT / "rag" / "index"
-MODEL_PATH = ROOT / "models" / "nura-q4_k_m.gguf"
+MODEL_PATH = ROOT / "models" / "nura-q3_k_m.gguf"
 LLAMA_CLI  = ROOT / "llama.cpp" / "build" / "bin" / "llama-cli"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TOP_K = 3                                         # keep context tight → less RAM, faster

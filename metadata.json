@@ -1,28 +1,39 @@
 {
-  "team_id": "<YOUR_DEVPOST_TEAM_ID>",
-  "project_name": "NURA Edge",
-  "domain": "Healthcare & Medical",
-  "one_line": "An offline maternal-health assistant for community health workers: patient onboarding with clinical risk scoring, personalized daily tips and wellness check-ins, and RAG-grounded symptom triage — all on a local laptop with no cloud and no internet.",
-  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
-  "base_model_license": "Apache-2.0",
-  "quantization": "Q4_K_M",
-  "runtime": "llama.cpp",
-  "model_file": "models/nura-q4_k_m.gguf",
-  "model_size_on_disk": "945 MB",
-  "cross_disciplinary_integration": "Health + information retrieval: offline RAG (local sentence-embedding model + FAISS vector search) over a clinician-approved maternal-health corpus grounds the LLM's triage answers. A deterministic clinical risk rubric and a local SQLite datastore complete the patient journey.",
-  "components": [
-    "Onboarding + risk scoring (deterministic clinical rubric, no LLM)",
-    "Personalized daily health tips (local LLM)",
-    "Personalized wellness check-ins (local LLM)",
-    "Symptom triage grounded in a clinician-approved corpus (local LLM + offline RAG)",
-    "Local SQLite database for patient records and conversation history"
+  "team_id": "NURA",
+  "domain": "healthcare_medical",
+  "language_scope": [
+    "en"
   ],
-  "offline": true,
-  "network_calls_at_runtime": "none",
-  "bonus_claims": {
-    "african_use_case": true,
-    "african_language": false,
-    "budget_laptop": false
+  "african_alpha_claim": true,
+  "budget_laptop_claim": true,
+  "submitter": {
+    "name": "Muyang Roshella",
+    "email": "muyangroshella40@gmail.com",
+    "github_handle": "AteghaTsili"
   },
-  "notes": "NURA Edge is the offline core of the NURA maternal-health platform (a production FastAPI system). It replaces the platform's hosted LLM with a local quantized model, eliminating per-token API fees and connectivity requirements so a clinic can run it on hardware it already owns."
+  "cross_disciplinary_pairing": {
+    "discipline": "public health / maternal healthcare",
+    "load_bearing": true,
+    "description": "NURA Edge is an offline maternal-health assistant that answers both pregnant women directly and community health workers on their behalf. It pairs a quantized language model with an offline RAG layer over a clinician-approved maternal-health corpus (local sentence-embedding + FAISS retrieval), so a 1.5B model grounds its triage answers in vetted guidance rather than recalling facts. A deterministic clinical risk rubric and a local datastore complete the patient journey. The retrieval pairing is load-bearing: without it the model loses its clinical grounding and the safety guarantee that answers map to clinician-approved content."
+  },
+  "test_prompts": [
+    {
+      "prompt_id": "tp_001",
+      "prompt": "My patient is two weeks past a miscarriage and is soaking more than one pad an hour with large clots, and now has a fever. What should I do?"
+    },
+    {
+      "prompt_id": "tp_002",
+      "prompt": "I am 30 weeks pregnant and since this morning I have a bad headache and my eyes are blurry. Should I be worried and what should I do?"
+    }
+  ],
+  "model": {
+    "name": "NURA-Edge-Qwen2.5-1.5B-Q3_K_M",
+    "runtime": "llama.cpp",
+    "quantization": "GGUF Q3_K_M",
+    "parameters_estimate": "1.5B",
+    "packaging": "binary_bundle"
+  },
+  "_runtime": {
+    "model_path": "model/nura-q3_k_m.gguf"
+  }
 }

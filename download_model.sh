@@ -1,22 +1,36 @@
 #!/usr/bin/env bash
-# =============================================================================
-# ADTC requires a working download_model.sh that fetches your model artifact.
-# The judges run this to obtain your GGUF before evaluating it offline.
+# Download the NURA Edge model weight file.
 #
-# Host your quantized model somewhere durable (HuggingFace model repo or a
-# release asset) and fetch it here. Do NOT commit the multi-GB GGUF to git.
-# =============================================================================
+# Rules:
+#   - Idempotent (safe to run multiple times).
+#   - Downloads without any credentials (public URL only).
+#   - Output path matches `_runtime.model_path` in metadata.json.
+ 
 set -euo pipefail
-
-MODEL_URL="${MODEL_URL:-https://huggingface.co/<your-username>/nura-edge/resolve/main/nura-q4_k_m.gguf}"
-DEST="models/nura-q4_k_m.gguf"
-
-mkdir -p models
-if [ -f "$DEST" ]; then
-  echo ">> Model already present: $DEST"; exit 0
+ 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODEL_DIR="$HERE/model"
+MODEL_FILE="$MODEL_DIR/nura-q3_k_m.gguf"
+ 
+MODEL_URL="https://huggingface.co/tsilimvo/nura-edge/resolve/main/nura-q3_k_m.gguf"
+ 
+mkdir -p "$MODEL_DIR"
+ 
+if [[ -f "$MODEL_FILE" ]]; then
+  echo "model already present at $MODEL_FILE — skipping download"
+  exit 0
 fi
-
-echo ">> Downloading quantized model..."
-# curl or huggingface-cli both fine; curl keeps deps minimal.
-curl -L "$MODEL_URL" -o "$DEST"
-echo ">> Saved to $DEST"
+ 
+echo "downloading $MODEL_URL -> $MODEL_FILE (~824 MB)..."
+ 
+if command -v curl > /dev/null 2>&1; then
+  curl -L --fail --progress-bar -o "$MODEL_FILE.partial" "$MODEL_URL"
+elif command -v wget > /dev/null 2>&1; then
+  wget --show-progress -O "$MODEL_FILE.partial" "$MODEL_URL"
+else
+  echo "error: neither curl nor wget found" >&2
+  exit 1
+fi
+ 
+mv "$MODEL_FILE.partial" "$MODEL_FILE"
+echo "done: $MODEL_FILE"
